@@ -1,30 +1,54 @@
 ENV["LC_ALL"] = "en_US.UTF-8"
 
-$script = <<-EOF
+$script_ng = <<-EOF
 export LC_ALL=en_US.UTF-8
 sudo yum -y update
-sudo yum -y install java-1.8.0-openjdk 
 sudo yum -y install wget
-sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+sudo yum -y install setroubleshoot setools
 sudo wget -O /etc/yum.repos.d/nginx.repo https://raw.githubusercontent.com/DrugSilver/devops/master/lecture2/nginx.repo
-sudo cp /vagrant/nginx.repo /etc/yum.repos.d/nginx.repo
-sudo rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
-sudo yum -y install jenkins nginx net-tools policycoreutils-python
-sudo wget -O /etc/sysconfig/jenkins https://raw.githubusercontent.com/DrugSilver/devops/master/lecture2/jenkins
+sudo yum -y install nginx net-tools policycoreutils-python
 sudo wget -O /etc/nginx/conf.d/default.conf https://raw.githubusercontent.com/DrugSilver/devops/master/lecture2/default.conf
+sudo setsebool -P httpd_can_network_connect 1
+sudo semanage port -a -t http_port_t -p tcp 2222
+sudo systemctl start nginx
+EOF
+
+$script_jk = <<-EOF
+export LC_ALL=en_US.UTF-8
+sudo yum -y update
+sudo yum -y install wget
+sudo yum -y install java-1.8.0-openjdk
+sudo yum -y install setroubleshoot setools
+sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+sudo rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
+sudo yum -y install jenkins net-tools policycoreutils-python
+sudo wget -O /etc/sysconfig/jenkins https://raw.githubusercontent.com/DrugSilver/devops/master/lecture2/jenkins
+sudo setsebool -P httpd_can_network_connect 1
+sudo semanage port -a -t http_port_t -p tcp 2222
 sudo service jenkins start
-sudo service nginx start
 EOF
 
 Vagrant.configure("2") do |config|
-  config.vm.define "test-vagrant" do |test|
-    test.vm.box = "centos/7"
-    test.vm.hostname = "stan.box"
-    test.vm.network :private_network, ip: "192.168.15.15"
-    test.vm.network :public_network, bridge: "en1: Wi-Fi (AirPort)", use_dhcp_assigned_default_route: true
+  config.vm.define "nginx-vg" do |nginx|
+    nginx.vm.box = "centos/7"
+    nginx.vm.hostname = "stan.box"
+    nginx.vm.network :private_network, ip:"192.168.14.11"
+    nginx.vm.network :public_network, bridge: "en0: Wi-Fi (AirPort)", use_dhcp_assigned_default_route: true
 
+    nginx.vm.provision "shell", inline: $script_ng
+  end
 
-    test.vm.provision "shell", inline: $script
+  config.vm.define "jenkins1-vg" do |jenkins1|
+    jenkins1.vm.box = "centos/7"
+    jenkins1.vm.network :private_network, ip:"192.168.14.51"
+
+    jenkins1.vm.provision "shell", inline: $script_jk
+  end
+
+  config.vm.define "jenkins2-vg" do |jenkins2|
+    jenkins2.vm.box = "centos/7"
+    jenkins2.vm.network :private_network, ip:"192.168.14.52"
+
+    jenkins2.vm.provision "shell", inline: $script_jk
   end
 end
-
